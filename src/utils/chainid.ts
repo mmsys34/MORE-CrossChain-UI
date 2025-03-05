@@ -1,0 +1,5 @@
+export enum CHAIN_IDS {
+  MAINNET = 1,
+  ARBITRUM = 42161,
+  FLOW_MAINNET = 747
+}

@@ -1,0 +1,49 @@
+import { CHAIN_IDS } from "./chainid";
+
+export const ADAPTER_MAINCHAIN_ADDRESS = "0x80f1431F94e05e887544765B3b2268481b28DBcB";
+
+export const ADAPTER_SIDECHAIN_ADDRESS: { [chainId: number]: `0x${string}` } = {
+  [CHAIN_IDS.MAINNET]: "0x0bf6EB414A11A860F79C5953a9452d4D2C340A8a"
+};
+
+export const ASSET_ADDRESS: { [asset: string] : {[chainId: number]: `0x${string}`} } = {
+    USDC: {
+        [CHAIN_IDS.MAINNET]: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+        [CHAIN_IDS.ARBITRUM]: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+        [CHAIN_IDS.FLOW_MAINNET]: "0xF1815bd50389c46847f0Bda824eC8da914045D14"
+    },
+    ETH: {
+        [CHAIN_IDS.MAINNET]: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+        [CHAIN_IDS.ARBITRUM]: "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
+        [CHAIN_IDS.FLOW_MAINNET]: "0x2F6F07CDcf3588944Bf4C42aC74ff24bF56e7590"
+    }
+};
+
+export const DEBT_ADDRESS: { [asset: string] : `0x${string}` } = {
+    USDC: "0xbD6e2ae2c8A0e3AA8f694C795cb0E7cbB6199d44",
+    ETH: "0x152F64483b8253E426ad4b6F600096f73b727D84"
+};
+
+export const MTOKEN_ADDRESS: { [asset: string] : `0x${string}` } = {
+    USDC: "0x49c6b2799aF2Db7404b930F24471dD961CFE18b7",
+    ETH: "0xaD412305cF8aD9545759466F3d889438598F773F"
+};
+
+export const STG_OFT_ADDRESS: { [asset: string] : {[chainId: number]: `0x${string}`} } = {
+    USDC: {
+        [CHAIN_IDS.MAINNET]: "0xc026395860Db2d07ee33e05fE50ed7bD583189C7",
+        [CHAIN_IDS.ARBITRUM]: "0x",
+        [CHAIN_IDS.FLOW_MAINNET]: "0xAF54BE5B6eEc24d6BFACf1cce4eaF680A8239398"
+    },
+    ETH: {
+        [CHAIN_IDS.MAINNET]: "0x77b2043768d28E9C9aB44E1aBfC95944bcE57931",
+        [CHAIN_IDS.ARBITRUM]: "0x",
+        [CHAIN_IDS.FLOW_MAINNET]: "0x45f1A95A4D3f3836523F5c83673c797f4d4d263B"
+    }
+};
+
+export const ENDPOINT_IDS: { [chainId: number] : number } = {
+    [CHAIN_IDS.MAINNET]: 30101,
+    [CHAIN_IDS.ARBITRUM]: 30110,
+    [CHAIN_IDS.FLOW_MAINNET]: 30336
+}
