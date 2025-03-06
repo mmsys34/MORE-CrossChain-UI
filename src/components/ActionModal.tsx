@@ -23,6 +23,7 @@ import {
 import { DebtAbi } from "../utils/abis/DebtAbi";
 import { AdapterMainchainAbi } from "../utils/abis/AdapterMainchainAbi";
 import { AdapterSidechainAbi } from "../utils/abis/AdapterSidechainAbi";
+import { CHAIN_IDS } from "../utils/chainid";
 
 interface ModalProps {
   isOpen: boolean;
@@ -49,6 +50,7 @@ const ActionModal: React.FC<ModalProps> = ({
   const [error, setError] = useState("");
   const [selectedChain, setSelectedChain] = useState(chains[0].name);
   const [isLoading, setIsLoading] = useState(false);
+  const [allowance, setAllowance] = useState(BigInt(0));
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -59,7 +61,7 @@ const ActionModal: React.FC<ModalProps> = ({
     }
     
     const numValue = parseUnits(value.toString(), decimals);
-    if (numValue > balance) {
+    if ((action == ACTIONS.SUPPLY || action == ACTIONS.REPAY) && numValue > balance) {
       setError("Insufficient balance");
     } else if (numValue <= 0) {
       setError("Amount must be greater than zero");
@@ -72,36 +74,42 @@ const ActionModal: React.FC<ModalProps> = ({
 
   const approve = async () => {
     if (address && chainId) {
-      const amountLD = parseUnits(amount, decimals);
-      let txHash;
-      if (asset != "ETH" && (action == ACTIONS.SUPPLY || action == ACTIONS.REPAY)) {
-        txHash = await writeContract(config, {
-          abi: erc20Abi,
-          address: ASSET_ADDRESS[asset][chainId],
-          functionName: "approve",
-          args: [ADAPTER_SIDECHAIN_ADDRESS[chainId], amountLD]
-        });
+      try {
+        const amountLD = parseUnits(amount, decimals);
+        let txHash;
+        if (asset != "ETH" && (action == ACTIONS.SUPPLY || action == ACTIONS.REPAY)) {
+          txHash = await writeContract(config, {
+            abi: erc20Abi,
+            address: ASSET_ADDRESS[asset][chainId],
+            functionName: "approve",
+            args: [ADAPTER_SIDECHAIN_ADDRESS[chainId], amountLD]
+          });
+        }
+        if (action == ACTIONS.BORROW) {
+          // approveDelegation
+          txHash = await writeContract(config, {
+            abi: DebtAbi,
+            address: DEBT_ADDRESS[asset],
+            functionName: "approveDelegation",
+            args: [ADAPTER_MAINCHAIN_ADDRESS, amountLD]
+          });
+        }
+        if (action == ACTIONS.WITHDRAW) {
+          txHash = await writeContract(config, {
+            abi: erc20Abi,
+            address: MTOKEN_ADDRESS[asset],
+            functionName: "approve",
+            args: [ADAPTER_MAINCHAIN_ADDRESS, amountLD]
+          });
+        }
+        if (txHash) {
+          waitForTransactionReceipt(config, {
+            hash: txHash
+          });
+        }
+      } catch (e) {
+        console.error(e);
       }
-      if (action == ACTIONS.BORROW) {
-        // approveDelegation
-        txHash = await writeContract(config, {
-          abi: DebtAbi,
-          address: DEBT_ADDRESS[asset],
-          functionName: "approveDelegation",
-          args: [ADAPTER_MAINCHAIN_ADDRESS, amountLD]
-        });
-      }
-      if (action == ACTIONS.WITHDRAW) {
-        txHash = await writeContract(config, {
-          abi: erc20Abi,
-          address: MTOKEN_ADDRESS[asset],
-          functionName: "approve",
-          args: [ADAPTER_MAINCHAIN_ADDRESS, amountLD]
-        });
-      }
-      waitForTransactionReceipt(config, {
-        hash: txHash!
-      });
     }
   }
 
@@ -141,7 +149,7 @@ const ActionModal: React.FC<ModalProps> = ({
         ASSET_ADDRESS[asset][chainId],
         amount,
         interestRateMode,
-        ENDPOINT_IDS["747"],
+        ENDPOINT_IDS["1"],
         address
       ],
       value: estimateFee
@@ -157,7 +165,7 @@ const ActionModal: React.FC<ModalProps> = ({
         ASSET_ADDRESS[asset][chainId],
         MTOKEN_ADDRESS[asset],
         amount,
-        ENDPOINT_IDS["747"],
+        ENDPOINT_IDS["1"],
         address
       ],
       value: estimateFee
@@ -165,75 +173,105 @@ const ActionModal: React.FC<ModalProps> = ({
   }
 
   const bridgeToken = async () => {
-    if (!error && amount) {
+    if (address && chainId) {
       const amountLD = parseUnits(amount, decimals);
       let estimateFee;
-      if (address && chainId) {
-        try {
-          setIsLoading(true);
-          if (chainId == 747) { // Mainchain, f.g. Flow
-            estimateFee = await readContract(config, {
-              abi: AdapterMainchainAbi,
-              address: ADAPTER_MAINCHAIN_ADDRESS,
-              functionName: "estimateFee",
-              args: [
-                STG_OFT_ADDRESS[asset][chainId],
-                ENDPOINT_IDS["1"],
-                amountLD,
-                address,
-                "0x"
-              ]
-            });
-          } else { // Sidechain, f.g. Ethereum
-            const functionType = action == ACTIONS.SUPPLY ? 0 : 1;
-            const interestRateMode = action == ACTIONS.SUPPLY ? 0 : 2;
-            const composedMsg = encodeAbiParameters(
-              [
-                { type: 'uint8' },
-                { type: 'address' },
-                { type: 'uint256' }
-              ],
-              [functionType, address, BigInt(interestRateMode)]
-            );
-            estimateFee = await readContract(config, {
-              abi: AdapterSidechainAbi,
-              address: ADAPTER_SIDECHAIN_ADDRESS[chainId],
-              functionName: "estimateFee",
-              args: [
-                STG_OFT_ADDRESS[asset][chainId],
-                ENDPOINT_IDS["747"],
-                amountLD,
-                ADAPTER_MAINCHAIN_ADDRESS,
-                composedMsg
-              ]
-            })
-          }
-          let txHash;
-          if (action == ACTIONS.SUPPLY) txHash = await supply(amountLD, estimateFee as bigint);
-          if (action == ACTIONS.REPAY) txHash = await repay(amountLD, estimateFee as bigint, 2);
-          if (action == ACTIONS.BORROW) txHash = await borrow(amountLD, estimateFee as bigint, 2);
-          if (action == ACTIONS.WITHDRAW) txHash = await withdraw(amountLD, estimateFee as bigint);
-
-          waitForTransactionReceipt(config, {
-            hash: txHash!
+      try {
+        setIsLoading(true);
+        if (chainId == 747) { // Mainchain, f.g. Flow
+          estimateFee = await readContract(config, {
+            abi: AdapterMainchainAbi,
+            address: ADAPTER_MAINCHAIN_ADDRESS,
+            functionName: "estimateFee",
+            args: [
+              STG_OFT_ADDRESS[asset][chainId],
+              ENDPOINT_IDS["1"],
+              amountLD,
+              address,
+              "0x"
+            ]
           });
-        } catch (e) {
-          console.error(e);
-        } finally {
-          setIsLoading(false);
+        } else { // Sidechain, f.g. Ethereum
+          const functionType = action == ACTIONS.SUPPLY ? 0 : 1;
+          const interestRateMode = action == ACTIONS.SUPPLY ? 0 : 2;
+          const composedMsg = encodeAbiParameters(
+            [
+              { type: 'uint8' },
+              { type: 'address' },
+              { type: 'uint256' }
+            ],
+            [functionType, address, BigInt(interestRateMode)]
+          );
+          estimateFee = await readContract(config, {
+            abi: AdapterSidechainAbi,
+            address: ADAPTER_SIDECHAIN_ADDRESS[chainId],
+            functionName: "estimateFee",
+            args: [
+              STG_OFT_ADDRESS[asset][chainId],
+              ENDPOINT_IDS["747"],
+              amountLD,
+              ADAPTER_MAINCHAIN_ADDRESS,
+              composedMsg
+            ]
+          })
         }
+        let txHash;
+        if (action == ACTIONS.SUPPLY) txHash = await supply(amountLD, estimateFee as bigint);
+        if (action == ACTIONS.REPAY) txHash = await repay(amountLD, estimateFee as bigint, 2);
+        if (action == ACTIONS.BORROW) txHash = await borrow(amountLD, estimateFee as bigint, 2);
+        if (action == ACTIONS.WITHDRAW) txHash = await withdraw(amountLD, estimateFee as bigint);
+
+        waitForTransactionReceipt(config, {
+          hash: txHash!
+        });
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setIsLoading(false);
       }
-      
-      setAmount("");
-      onClose();
     }
+    
+    setAmount("");
+    onClose();
   };
 
   useEffect(() => {
-    if (!isOpen) {
-      setAmount(""); // Reset state when modal closes
-    }
-  }, [isOpen]);
+    (async () => {
+      if (asset && address && chainId) {
+        // fetch allowance
+        let allowance: bigint = BigInt(0);
+        if (chainId != CHAIN_IDS.FLOW_MAINNET) {
+          if (asset != "ETH") {
+            allowance = await readContract(config, {
+              abi: erc20Abi,
+              address: ASSET_ADDRESS[asset][chainId],
+              functionName: "allowance",
+              args: [address, ADAPTER_SIDECHAIN_ADDRESS[chainId]]
+            });
+          }
+        } else {
+          if (action == ACTIONS.BORROW) {
+            allowance = await readContract(config, {
+              abi: DebtAbi,
+              address: DEBT_ADDRESS[asset],
+              functionName: "borrowAllowance",
+              args: [address, ADAPTER_MAINCHAIN_ADDRESS]
+            }) as bigint;
+          }
+          if (action == ACTIONS.WITHDRAW) {
+            allowance = await readContract(config, {
+              abi: erc20Abi,
+              address: MTOKEN_ADDRESS[asset],
+              functionName: "allowance",
+              args: [address, ADAPTER_MAINCHAIN_ADDRESS]
+            });
+          }
+        }
+        console.log(allowance);
+        setAllowance(allowance);
+      }
+    })();
+  }, [asset, action, address, chainId]);
 
   return (
     <Transition appear show={isOpen} as={Fragment}>
@@ -321,14 +359,14 @@ const ActionModal: React.FC<ModalProps> = ({
                   </Listbox>
                 </div>}
               <div className="mt-6 flex justify-end space-x-2">
-                { !(asset == "ETH" && (action == ACTIONS.SUPPLY || action == ACTIONS.REPAY)) && <button
+                { !(asset == "ETH" && chainId != CHAIN_IDS.FLOW_MAINNET) && <button
                   className={`rounded-lg px-4 py-2 bg-gray-200 text-gray-700 ${
-                    error || !amount
+                    error || !amount || allowance > parseUnits(amount, decimals)
                       ? "cursor-not-allowed"
-                      : "hover:bg-gray-400"
+                      : "hover:bg-blue-400"
                   }`}
                   onClick={approve}
-                  disabled={!!error || !amount}
+                  disabled={!!error || !amount || allowance > parseUnits(amount, decimals)}
                 >
                   Approve
                 </button> }

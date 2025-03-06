@@ -54,13 +54,14 @@ const BorrowTableRow = ({ asset, openModal } : { asset: string, openModal: (sele
     return (
         <>
             <tr className="hover:bg-gray-800">
-                <td className="px-6 py-4 text-white text-sm">{ asset }</td>
-                <td className="px-6 py-4 text-white text-sm">{ "-" }</td>
+                <td className="px-6 py-4 text-white text-md">{ asset }</td>
+                <td className="px-6 py-4 text-white text-md">{ "-" }</td>
+                <td className="px-6 py-4 text-white text-md">{ "-" }</td>
                 <td className="px-6 py-4 flex justify-end space-x-2">
-                    { chainId == 747 && <Button className="text-white px-3 py-1 border border-gray-600 hover:bg-gray-700" onClick={() => openModal(asset, decimals, balance, ACTIONS.BORROW)}>
+                    { chainId == 747 && <Button className="text-white px-3 py-2 border border-gray-600 hover:bg-gray-700" onClick={() => openModal(asset, decimals, balance, ACTIONS.BORROW)}>
                         Borrow
                     </Button> }
-                    { chainId != 747 && <Button className="text-white px-3 py-1 border border-gray-600 hover:bg-gray-700" onClick={() => openModal(asset, decimals, balance, ACTIONS.REPAY)}>
+                    { chainId != 747 && <Button className="text-white px-3 py-2 border border-gray-600 hover:bg-gray-700" onClick={() => openModal(asset, decimals, balance, ACTIONS.REPAY)}>
                         Repay
                     </Button> }
                 </td>
