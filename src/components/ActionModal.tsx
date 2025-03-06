@@ -71,8 +71,8 @@ const ActionModal: React.FC<ModalProps> = ({
   };
 
   const supply = async (amount: bigint, estimateFee: bigint) => {
-    if (asset != "ETH") { // Fetch allowance
-      try {
+    try {
+      if (asset != "ETH") { // Fetch allowance
         const allowance = await readContract(config, {
           abi: erc20Abi,
           address: ASSET_ADDRESS[asset][chainId],
@@ -88,29 +88,30 @@ const ActionModal: React.FC<ModalProps> = ({
             args: [ADAPTER_SIDECHAIN_ADDRESS[chainId], amount]
           });
 
-          waitForTransactionReceipt(config, {
+          await waitForTransactionReceipt(config, {
             hash: txHash
           });
         }
-        return await writeContract(config, {
-          abi: AdapterSidechainAbi,
-          address: ADAPTER_SIDECHAIN_ADDRESS[chainId],
-          functionName: "supply",
-          args: [
-            ASSET_ADDRESS[asset][chainId],
-            amount
-          ],
-          value: estimateFee
-        });
-      } catch (e) {
-        console.error(e);
       }
+
+      return await writeContract(config, {
+        abi: AdapterSidechainAbi,
+        address: ADAPTER_SIDECHAIN_ADDRESS[chainId],
+        functionName: "supply",
+        args: [
+          ASSET_ADDRESS[asset][chainId],
+          amount
+        ],
+        value: estimateFee
+      });
+    } catch (e) {
+      console.error(e);
     }
   }
 
   const repay = async (amount: bigint, estimateFee: bigint, interestRateMode: number) => {
-    if (asset != "ETH") { // Fetch allowance
-      try {
+    try {
+      if (asset != "ETH") { // Fetch allowance
         const allowance = await readContract(config, {
           abi: erc20Abi,
           address: ASSET_ADDRESS[asset][chainId],
@@ -126,27 +127,27 @@ const ActionModal: React.FC<ModalProps> = ({
             args: [ADAPTER_SIDECHAIN_ADDRESS[chainId], amount]
           });
 
-          waitForTransactionReceipt(config, {
+          await waitForTransactionReceipt(config, {
             hash: txHash
           });
         }
-
-        return await writeContract(config, {
-          abi: AdapterSidechainAbi,
-          address: ADAPTER_SIDECHAIN_ADDRESS[chainId],
-          functionName: "repay",
-          args: [
-            ASSET_ADDRESS[asset][chainId],
-            amount,
-            interestRateMode
-          ],
-          value: estimateFee
-        });
-
-      } catch (e) {
-        console.error(e);
-        return;
       }
+
+      return await writeContract(config, {
+        abi: AdapterSidechainAbi,
+        address: ADAPTER_SIDECHAIN_ADDRESS[chainId],
+        functionName: "repay",
+        args: [
+          ASSET_ADDRESS[asset][chainId],
+          amount,
+          interestRateMode
+        ],
+        value: estimateFee
+      });
+
+    } catch (e) {
+      console.error(e);
+      return;
     }
   }
 
@@ -158,7 +159,7 @@ const ActionModal: React.FC<ModalProps> = ({
         functionName: "borrowAllowance",
         args: [address!, ADAPTER_MAINCHAIN_ADDRESS]
       }) as bigint;
-      console.log("allowance", allowance);
+
       if (allowance < amount) { // approve
         const txHash = await writeContract(config, {
           abi: DebtAbi,
@@ -167,7 +168,7 @@ const ActionModal: React.FC<ModalProps> = ({
           args: [ADAPTER_MAINCHAIN_ADDRESS, amount]
         });
 
-        waitForTransactionReceipt(config, {
+        await waitForTransactionReceipt(config, {
           hash: txHash
         });
       }
@@ -208,7 +209,7 @@ const ActionModal: React.FC<ModalProps> = ({
           args: [ADAPTER_MAINCHAIN_ADDRESS, amount]
         });
     
-        waitForTransactionReceipt(config, {
+        await waitForTransactionReceipt(config, {
           hash: txHash
         });
       }
@@ -284,7 +285,7 @@ const ActionModal: React.FC<ModalProps> = ({
 
         console.log("txHash: ", txHash);
         if (txHash) { 
-            waitForTransactionReceipt(config, {
+          await waitForTransactionReceipt(config, {
             hash: txHash
           });
         }
