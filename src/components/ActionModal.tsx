@@ -50,7 +50,6 @@ const ActionModal: React.FC<ModalProps> = ({
   const [error, setError] = useState("");
   const [selectedChain, setSelectedChain] = useState(chains[0].name);
   const [isLoading, setIsLoading] = useState(false);
-  const [allowance, setAllowance] = useState(BigInt(0));
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -68,108 +67,170 @@ const ActionModal: React.FC<ModalProps> = ({
     } else {
       setError("");
     }
-
     setAmount(value);
   };
 
-  const approve = async () => {
-    if (address && chainId) {
+  const supply = async (amount: bigint, estimateFee: bigint) => {
+    if (asset != "ETH") { // Fetch allowance
       try {
-        const amountLD = parseUnits(amount, decimals);
-        let txHash;
-        if (asset != "ETH" && (action == ACTIONS.SUPPLY || action == ACTIONS.REPAY)) {
-          txHash = await writeContract(config, {
+        const allowance = await readContract(config, {
+          abi: erc20Abi,
+          address: ASSET_ADDRESS[asset][chainId],
+          functionName: "allowance",
+          args: [address!, ADAPTER_SIDECHAIN_ADDRESS[chainId]]
+        });
+
+        if (allowance < amount) { // Approve
+          const txHash = await writeContract(config, {
             abi: erc20Abi,
             address: ASSET_ADDRESS[asset][chainId],
             functionName: "approve",
-            args: [ADAPTER_SIDECHAIN_ADDRESS[chainId], amountLD]
+            args: [ADAPTER_SIDECHAIN_ADDRESS[chainId], amount]
           });
-        }
-        if (action == ACTIONS.BORROW) {
-          // approveDelegation
-          txHash = await writeContract(config, {
-            abi: DebtAbi,
-            address: DEBT_ADDRESS[asset],
-            functionName: "approveDelegation",
-            args: [ADAPTER_MAINCHAIN_ADDRESS, amountLD]
-          });
-        }
-        if (action == ACTIONS.WITHDRAW) {
-          txHash = await writeContract(config, {
-            abi: erc20Abi,
-            address: MTOKEN_ADDRESS[asset],
-            functionName: "approve",
-            args: [ADAPTER_MAINCHAIN_ADDRESS, amountLD]
-          });
-        }
-        if (txHash) {
+
           waitForTransactionReceipt(config, {
             hash: txHash
           });
         }
+        return await writeContract(config, {
+          abi: AdapterSidechainAbi,
+          address: ADAPTER_SIDECHAIN_ADDRESS[chainId],
+          functionName: "supply",
+          args: [
+            ASSET_ADDRESS[asset][chainId],
+            amount
+          ],
+          value: estimateFee
+        });
       } catch (e) {
         console.error(e);
       }
     }
   }
 
-  const supply = async (amount: bigint, estimateFee: bigint) => {
-    return await writeContract(config, {
-      abi: AdapterSidechainAbi,
-      address: ADAPTER_SIDECHAIN_ADDRESS[chainId],
-      functionName: "supply",
-      args: [
-        ASSET_ADDRESS[asset][chainId],
-        amount
-      ],
-      value: estimateFee
-    });
-  }
-
   const repay = async (amount: bigint, estimateFee: bigint, interestRateMode: number) => {
-    return await writeContract(config, {
-      abi: AdapterSidechainAbi,
-      address: ADAPTER_SIDECHAIN_ADDRESS[chainId],
-      functionName: "repay",
-      args: [
-        ASSET_ADDRESS[asset][chainId],
-        amount,
-        interestRateMode
-      ],
-      value: estimateFee
-    });
+    if (asset != "ETH") { // Fetch allowance
+      try {
+        const allowance = await readContract(config, {
+          abi: erc20Abi,
+          address: ASSET_ADDRESS[asset][chainId],
+          functionName: "allowance",
+          args: [address!, ADAPTER_SIDECHAIN_ADDRESS[chainId]]
+        });
+
+        if (allowance < amount) { // Approve
+          const txHash = await writeContract(config, {
+            abi: erc20Abi,
+            address: ASSET_ADDRESS[asset][chainId],
+            functionName: "approve",
+            args: [ADAPTER_SIDECHAIN_ADDRESS[chainId], amount]
+          });
+
+          waitForTransactionReceipt(config, {
+            hash: txHash
+          });
+        }
+
+        return await writeContract(config, {
+          abi: AdapterSidechainAbi,
+          address: ADAPTER_SIDECHAIN_ADDRESS[chainId],
+          functionName: "repay",
+          args: [
+            ASSET_ADDRESS[asset][chainId],
+            amount,
+            interestRateMode
+          ],
+          value: estimateFee
+        });
+
+      } catch (e) {
+        console.error(e);
+        return;
+      }
+    }
   }
 
   const borrow = async (amount: bigint, estimateFee: bigint, interestRateMode: number) => {
-    return await writeContract(config, {
-      abi: AdapterMainchainAbi,
-      address: ADAPTER_MAINCHAIN_ADDRESS,
-      functionName: "borrow",
-      args: [
-        ASSET_ADDRESS[asset][chainId],
-        amount,
-        interestRateMode,
-        ENDPOINT_IDS["1"],
-        address
-      ],
-      value: estimateFee
-    });
+    try {
+      const allowance = await readContract(config, {
+        abi: DebtAbi,
+        address: DEBT_ADDRESS[asset],
+        functionName: "borrowAllowance",
+        args: [address!, ADAPTER_MAINCHAIN_ADDRESS]
+      }) as bigint;
+      console.log("allowance", allowance);
+      if (allowance < amount) { // approve
+        const txHash = await writeContract(config, {
+          abi: DebtAbi,
+          address: DEBT_ADDRESS[asset],
+          functionName: "approveDelegation",
+          args: [ADAPTER_MAINCHAIN_ADDRESS, amount]
+        });
+
+        waitForTransactionReceipt(config, {
+          hash: txHash
+        });
+      }
+
+      return await writeContract(config, {
+        abi: AdapterMainchainAbi,
+        address: ADAPTER_MAINCHAIN_ADDRESS,
+        functionName: "borrow",
+        args: [
+          ASSET_ADDRESS[asset][chainId],
+          amount,
+          interestRateMode,
+          ENDPOINT_IDS[CHAIN_IDS.MAINNET],
+          address
+        ],
+        value: estimateFee
+      });
+    } catch (e) {
+      console.error(e);
+      return;
+    }
   }
 
   const withdraw = async (amount: bigint, estimateFee: bigint) => {
-    return await writeContract(config, {
-      abi: AdapterMainchainAbi,
-      address: ADAPTER_MAINCHAIN_ADDRESS,
-      functionName: "withdraw",
-      args: [
-        ASSET_ADDRESS[asset][chainId],
-        MTOKEN_ADDRESS[asset],
-        amount,
-        ENDPOINT_IDS["1"],
-        address
-      ],
-      value: estimateFee
-    });
+    try {
+      const allowance = await readContract(config, {
+        abi: erc20Abi,
+        address: MTOKEN_ADDRESS[asset],
+        functionName: "allowance",
+        args: [address!, ADAPTER_MAINCHAIN_ADDRESS]
+      });
+
+      if (allowance < amount) { // approve
+        const txHash = await writeContract(config, {
+          abi: erc20Abi,
+          address: MTOKEN_ADDRESS[asset],
+          functionName: "approve",
+          args: [ADAPTER_MAINCHAIN_ADDRESS, amount]
+        });
+    
+        waitForTransactionReceipt(config, {
+          hash: txHash
+        });
+      }
+
+      return await writeContract(config, {
+        abi: AdapterMainchainAbi,
+        address: ADAPTER_MAINCHAIN_ADDRESS,
+        functionName: "withdraw",
+        args: [
+          ASSET_ADDRESS[asset][chainId],
+          MTOKEN_ADDRESS[asset],
+          amount,
+          ENDPOINT_IDS[CHAIN_IDS.MAINNET],
+          address
+        ],
+        value: estimateFee
+      });
+
+    } catch (e) {
+      console.error(e);
+      return;
+    }
   }
 
   const bridgeToken = async () => {
@@ -221,9 +282,12 @@ const ActionModal: React.FC<ModalProps> = ({
         if (action == ACTIONS.BORROW) txHash = await borrow(amountLD, estimateFee as bigint, 2);
         if (action == ACTIONS.WITHDRAW) txHash = await withdraw(amountLD, estimateFee as bigint);
 
-        waitForTransactionReceipt(config, {
-          hash: txHash!
-        });
+        console.log("txHash: ", txHash);
+        if (txHash) { 
+            waitForTransactionReceipt(config, {
+            hash: txHash
+          });
+        }
       } catch (e) {
         console.error(e);
       } finally {
@@ -236,42 +300,10 @@ const ActionModal: React.FC<ModalProps> = ({
   };
 
   useEffect(() => {
-    (async () => {
-      if (asset && address && chainId) {
-        // fetch allowance
-        let allowance: bigint = BigInt(0);
-        if (chainId != CHAIN_IDS.FLOW_MAINNET) {
-          if (asset != "ETH") {
-            allowance = await readContract(config, {
-              abi: erc20Abi,
-              address: ASSET_ADDRESS[asset][chainId],
-              functionName: "allowance",
-              args: [address, ADAPTER_SIDECHAIN_ADDRESS[chainId]]
-            });
-          }
-        } else {
-          if (action == ACTIONS.BORROW) {
-            allowance = await readContract(config, {
-              abi: DebtAbi,
-              address: DEBT_ADDRESS[asset],
-              functionName: "borrowAllowance",
-              args: [address, ADAPTER_MAINCHAIN_ADDRESS]
-            }) as bigint;
-          }
-          if (action == ACTIONS.WITHDRAW) {
-            allowance = await readContract(config, {
-              abi: erc20Abi,
-              address: MTOKEN_ADDRESS[asset],
-              functionName: "allowance",
-              args: [address, ADAPTER_MAINCHAIN_ADDRESS]
-            });
-          }
-        }
-        console.log(allowance);
-        setAllowance(allowance);
-      }
-    })();
-  }, [asset, action, address, chainId]);
+    if (!isOpen) {
+      setAmount("");
+    }
+  }, [isOpen]);
 
   return (
     <Transition appear show={isOpen} as={Fragment}>
@@ -359,17 +391,12 @@ const ActionModal: React.FC<ModalProps> = ({
                   </Listbox>
                 </div>}
               <div className="mt-6 flex justify-end space-x-2">
-                { !(asset == "ETH" && chainId != CHAIN_IDS.FLOW_MAINNET) && <button
-                  className={`rounded-lg px-4 py-2 bg-gray-200 text-gray-700 ${
-                    error || !amount || allowance > parseUnits(amount, decimals)
-                      ? "cursor-not-allowed"
-                      : "hover:bg-blue-400"
-                  }`}
-                  onClick={approve}
-                  disabled={!!error || !amount || allowance > parseUnits(amount, decimals)}
+                <button
+                  className={`rounded-lg px-4 py-2 bg-gray-200 text-gray-700 hover:bg-gray-400`}
+                  onClick={onClose}
                 >
-                  Approve
-                </button> }
+                  Cancel
+                </button>
                 <button
                   className={`rounded-lg px-4 py-2 text-white ${
                     error || !amount
