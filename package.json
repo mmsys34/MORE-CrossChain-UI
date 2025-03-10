@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@headlessui/react": "^2.2.0",
+    "@heroicons/react": "^2.2.0",
     "@rainbow-me/rainbowkit": "^2.2.4",
     "@tailwindcss/postcss": "^4.0.9",
     "@tanstack/react-query": "^5.55.3",

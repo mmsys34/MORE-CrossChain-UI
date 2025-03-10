@@ -1,24 +1,30 @@
-import { useState } from "react";
+import { act, useState } from "react";
 import { ACTIONS } from "../utils/constants";
 import SupplyTableRow from "./SupplyTableRow";
 import BorrowTableRow from "./BorrowTableRow";
-import ActionModal from "./ActionModal";
+import SupplyRepayModal from "./SupplyRepayModal";
+import BorrowWithdrawModal from "./BorrowWithdrawModal";
 
 const assets = ["ETH", "USDC"];
 
 export function Main() {
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSupplyRepayModalOpen, setIsSupplyRepayModalOpen] = useState(false);
+  const [isBorrowWithdrawModalOpen, setIsBorrowWithdrawModalOpen] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<string>("");
   const [selectedAction, setSelectedAction] = useState<ACTIONS>(ACTIONS.SUPPLY);
   const [decimals, setDecimals] = useState<number>(18);
   const [balance, setBalance] = useState<bigint>(BigInt(0));
 
   const openModal = (asset: string, decimals: number, balance: bigint, action: ACTIONS) => {
-      setIsModalOpen(true);
-      setSelectedAsset(asset);
-      setSelectedAction(action);
-      setDecimals(decimals);
-      setBalance(balance);
+    if (action == ACTIONS.SUPPLY || action == ACTIONS.REPAY) {
+      setIsSupplyRepayModalOpen(true);
+    } else {
+      setIsBorrowWithdrawModalOpen(true);
+    }
+    setSelectedAsset(asset);
+    setSelectedAction(action);
+    setDecimals(decimals);
+    setBalance(balance);
   };
 
   return (
@@ -48,6 +54,14 @@ export function Main() {
               ))}
             </tbody>
         </table>
+        <SupplyRepayModal
+          isOpen={isSupplyRepayModalOpen}
+          onClose={() => setIsSupplyRepayModalOpen(false)}
+          action={selectedAction}
+          asset={selectedAsset}
+          decimals={decimals}
+          balance={balance}
+        />
       </div>
       <div className="overflow-x-auto bg-gray-900 rounded-xl shadow-lg p-4">
         <h1 className="text-white font-medium mb-6">Your borrows</h1>
@@ -74,15 +88,15 @@ export function Main() {
                 ))}
             </tbody>
         </table>
+        <BorrowWithdrawModal
+          isOpen={isBorrowWithdrawModalOpen}
+          onClose={() => setIsBorrowWithdrawModalOpen(false)}
+          action={selectedAction}
+          asset={selectedAsset}
+          decimals={decimals}
+          balance={balance}
+        />
       </div>
-      <ActionModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        action={selectedAction}
-        asset={selectedAsset}
-        decimals={decimals}
-        balance={balance}
-      />
     </>
   );
 }

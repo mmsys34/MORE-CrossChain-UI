@@ -61,12 +61,12 @@ const SupplyTableRow = ({ asset, openModal } : {
                 <td className="px-6 py-4 text-white text-md">{ "-" }</td>
                 <td className="px-6 py-4 text-white text-md">{ Number(formatUnits(balance, decimals)).toFixed(5) }</td>
                 <td className="px-6 py-4 flex justify-end space-x-2">
-                    { chainId != 747 && <Button className="text-white px-3 py-2 border border-gray-600 hover:bg-gray-700" onClick={() => openModal(asset, decimals, balance, ACTIONS.SUPPLY)}>
+                    <Button className="text-white px-3 py-2 border border-gray-600 hover:bg-gray-700" onClick={() => openModal(asset, decimals, balance, ACTIONS.SUPPLY)}>
                         Supply
-                    </Button> }
-                    { chainId == 747 && <Button className="text-white px-3 py-2 border border-gray-600 hover:bg-gray-700" onClick={() => openModal(asset, decimals, balance, ACTIONS.WITHDRAW)}>
+                    </Button>
+                    <Button className="text-white px-3 py-2 border border-gray-600 hover:bg-gray-700" onClick={() => openModal(asset, decimals, balance, ACTIONS.WITHDRAW)}>
                         Withdraw
-                    </Button>}
+                    </Button>
                 </td>
             </tr>
         </>
