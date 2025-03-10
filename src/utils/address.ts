@@ -47,3 +47,7 @@ export const ENDPOINT_IDS: { [chainId: number] : number } = {
     [CHAIN_IDS.ARBITRUM]: 30110,
     [CHAIN_IDS.FLOW_MAINNET]: 30336
 }
+
+export const POOL_ADDRESS = "0xbC92aaC2DBBF42215248B5688eB3D3d2b32F2c8d";
+
+export const POOl_DATA_PROVIDER = "0x79e71e3c0EDF2B88b0aB38E9A1eF0F6a230e56bf";

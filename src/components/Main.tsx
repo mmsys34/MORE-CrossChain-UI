@@ -14,8 +14,9 @@ export function Main() {
   const [selectedAction, setSelectedAction] = useState<ACTIONS>(ACTIONS.SUPPLY);
   const [decimals, setDecimals] = useState<number>(18);
   const [balance, setBalance] = useState<bigint>(BigInt(0));
+  const [ colOrDebt, setColOrDebt ] = useState<bigint>(BigInt(0));
 
-  const openModal = (asset: string, decimals: number, balance: bigint, action: ACTIONS) => {
+  const openModal = (asset: string, decimals: number, colOrDebt: bigint, balance: bigint, action: ACTIONS) => {
     if (action == ACTIONS.SUPPLY || action == ACTIONS.REPAY) {
       setIsSupplyRepayModalOpen(true);
     } else {
@@ -25,6 +26,7 @@ export function Main() {
     setSelectedAction(action);
     setDecimals(decimals);
     setBalance(balance);
+    setColOrDebt(colOrDebt);
   };
 
   return (
